@@ -1,5 +1,7 @@
 important things for the consolidated state:
     queen health
+    numworkers
     worker distance to move (to food and to tunnel/anthill)
+    numsoldiers - soldiers, drones, ranged soldiers
     total food
 

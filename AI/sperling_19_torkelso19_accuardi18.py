@@ -483,6 +483,7 @@ class AIPlayer(Player):
         # method templaste, not implemented
         pass
 
+
     ##
     # merge_sort
     #
