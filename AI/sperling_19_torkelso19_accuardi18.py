@@ -25,7 +25,7 @@ from AIPlayerUtils import *
 class AIPlayer(Player):
 
     # maximum depth
-    max_depth = 3
+    max_depth = 0
 
     # this AI's playerID
     me = -1
@@ -37,7 +37,7 @@ class AIPlayer(Player):
     #TD Learning Variables Below
 
     #FileName
-    filepath = "./sperling19_torkelso19_accuardi18.txt"
+    filepath = "C://Users/ejit5_000/PycharmProjects/AI_HW6/sperling19_torkelso19_accuardi18.txt"
 
     # a list for consolidated states and their values
     state_value_list = []
@@ -48,8 +48,10 @@ class AIPlayer(Player):
     #Learning Rate
     alpha = 1.0
 
-    #Eligibility Trace
-    eLambda = 1.0
+    #Eligibility Trace Stuff
+    e_lambda = 1.0
+    e_size = 50
+    eligibility_queue = []
 
     #Game Counter
     numGames = 0
@@ -153,8 +155,48 @@ class AIPlayer(Player):
         else:
             return None  # should never happen
 
-            ##
+    ##
+    # getMove
+    # Description: Gets the next move from the Player.
+    #
+    # Parameters:
+    #   currentState - The state of the current game waiting for the player's move (GameState)
+    #
+    # Return: The Move to be made
+    ##
+    def getMove(self, currentState):
 
+        if not self.me_set_up:
+            self.me = currentState.whoseTurn
+
+        # searches for best move
+        selectedMove = self.move_search(currentState, 0, -(float)("inf"), (float)("inf"))
+
+        #TD Learning
+        self.append_state(self.consolidate_state(currentState))
+        index_of_state = self.state_value_list.index([self.consolidate_state(currentState), self.find_state_eval(self.consolidate_state(currentState))])
+
+        self.eligibility_queue.insert(0,index_of_state)
+        if len(self.eligibility_queue) > self.e_size:
+            self.eligibility_queue.pop()
+
+        #TD Learning Equation
+        if len(self.eligibility_queue) > 1:
+            self.e_lambda = 1
+            for i in range(len(self.eligibility_queue)):
+                if i == 0: continue
+                else:
+                    self.state_value_list[self.eligibility_queue[i]][1] = -0.001 + self.alpha*self.e_lambda*(-.001 + self.gamma*self.state_value_list[self.eligibility_queue[i-1]][1] - self.state_value_list[self.eligibility_queue[i]][1])
+                    self.e_lambda *= 0.9
+
+        # if not None, return move, if None, end turn
+        if not selectedMove == None:
+            return selectedMove
+        else:
+            return Move(END, None, None)
+
+
+    ##
     # move_search - recursive
     # Description: uses Minimax with alpha beta pruning to search for best next move
     #
@@ -171,14 +213,17 @@ class AIPlayer(Player):
 
         # if max depth surpassed, return state evaluation
         if curr_depth == self.max_depth + 1:
-            return self.evaluate_state(game_state)
+            evaluation = self.find_state_eval(game_state)
+            if evaluation == -25655:
+                evaluation = 0
+            return evaluation
 
         # list all legal moves
         move_list = listAllLegalMoves(game_state)
 
         # remove end turn move if the list isn't empty
-        if not len(move_list) == 1:
-            move_list.pop()
+        #if not len(move_list) == 1:
+        #    move_list.pop()
 
         # list of nodes, which contain the state, move, and eval
         node_list = []
@@ -186,7 +231,9 @@ class AIPlayer(Player):
         # generate states based on moves, evaluate them and put them into a list in node_list
         for move in move_list:
             state = getNextStateAdversarial(game_state, move)
-            state_eval = self.evaluate_state(state)
+            state_eval = self.find_state_eval(state)
+            if state_eval == -25655:
+                state_eval = 0
             if not state_eval == 0.00001:
                 node_list.append([state, move, state_eval])
 
@@ -230,6 +277,8 @@ class AIPlayer(Player):
             best_eval = -1
             best_node = []
 
+            random.shuffle(best_nodes)
+
             for node in best_nodes:
                 if node[2] > best_eval:
                     best_eval = node[2]
@@ -239,255 +288,6 @@ class AIPlayer(Player):
                 return best_node[1]
             else:
                 return None
-
-    ##
-    # get_closest_enemy_dist - helper function
-    #
-    # returns distance to closest enemy from an ant
-    ##
-    def get_closest_enemy_dist(self, my_ant_coords, enemy_ants):
-        closest_dist = 100
-        for ant in enemy_ants:
-            if not ant.type == WORKER:
-                dist = approxDist(my_ant_coords, ant.coords)
-                if dist < closest_dist:
-                    closest_dist = dist
-        return closest_dist
-
-    ##
-    # get_closest_enemy_worker_dist - helper function
-    #
-    # returns distance to closest enemy worker ant
-    ##
-    def get_closest_enemy_worker_dist(self, my_ant_coords, enemy_ants):
-        closest_dist = 100
-        for ant in enemy_ants:
-            if ant.type == WORKER:
-                dist = approxDist(my_ant_coords, ant.coords)
-                if dist < closest_dist:
-                    closest_dist = dist
-        return closest_dist
-
-    ##
-    # get_closest_enemy_food_dist - helper function
-    #
-    # returns distance to closest enemy food
-    ##
-    def get_closest_enemy_food_dist(self, my_ant_coords, enemy_food_coords):
-
-        enemy_food1_dist = approxDist(my_ant_coords, enemy_food_coords[0])
-        enemy_food2_dist = approxDist(my_ant_coords, enemy_food_coords[1])
-
-        if enemy_food1_dist < enemy_food2_dist:
-            return enemy_food1_dist
-        else:
-            return enemy_food2_dist
-
-    ##
-    # evaluate_state
-    #
-    # Evaluates and scores a GameState Object
-    #
-    # Parameters
-    #   state - the GameState object to evaluate
-    #
-    # Return
-    #   a double between 0 and 1 inclusive
-    ##
-    def evaluate_state(self, state):
-        # The AI's player ID
-        me = state.whoseTurn
-        # The opponent's ID
-        enemy = (state.whoseTurn + 1) % 2
-
-        # Get a reference to the player's inventory
-        my_inv = state.inventories[me]
-        # Get a reference to the enemy player's inventory
-        enemy_inv = state.inventories[enemy]
-
-        # Gets both the player's queens
-        my_queen = getAntList(state, me, (QUEEN,))
-        enemy_queen = getAntList(state, enemy, (QUEEN,))
-
-        # Sees if winning or loosing conditions are already met
-        if (my_inv.foodCount == 11) or (enemy_queen is None):
-            return 1.0
-        if (enemy_inv.foodCount == 11) or (my_queen is None):
-            return 0.0
-
-        # the starting value, not winning or losing
-        eval = 0.0
-
-        # important number
-        worker_count = 0
-        drone_count = 0
-
-        food_coords = []
-        enemy_food_coords = []
-
-        foods = getConstrList(state, None, (FOOD,))
-
-        # Gets a list of all of the food coords
-        for food in foods:
-            if food.coords[1] < 5:
-                food_coords.append(food.coords)
-            else:
-                enemy_food_coords.append(food.coords)
-
-        # coordinates of this AI's tunnel
-        tunnel = my_inv.getTunnels()
-        t_coords = tunnel[0].coords
-
-        # coordinates of this AI's anthill
-        ah_coords = my_inv.getAnthill().coords
-
-        # A list that stores the evaluations of each worker
-        wEval = []
-
-        # A list that stores the evaluations of each drone, if they exist
-        dEval = []
-
-        # queen evaluation
-        qEval = 0
-
-        # iterates through ants and scores positioning
-        for ant in my_inv.ants:
-
-            # scores queen
-            if ant.type == QUEEN:
-
-                qEval = 50.0
-
-                # if queen is on anthill, tunnel, or food it's bad
-                if ant.coords == ah_coords or ant.coords == t_coords or ant.coords == food_coords[
-                    0] or ant.coords == food_coords[1]:
-                    qEval -= 10
-
-                # if queen is out of rows 0 or 1 it's bad
-                if ant.coords[0] > 1:
-                    qEval -= 10
-
-                # the father from enemy ants, the better
-                qEval -= 2 * self.get_closest_enemy_dist(ant.coords, enemy_inv.ants)
-
-            # scores worker to incentivize food gathering
-            elif ant.type == WORKER:
-
-                # tallies up workers
-                worker_count += 1
-
-                # if carrying, the closer to the anthill or tunnel, the better
-                if ant.carrying:
-
-                    wEval.append(100.0)
-
-                    # distance to anthill
-                    ah_dist = approxDist(ant.coords, ah_coords)
-
-                    # distance to tunnel
-                    t_dist = approxDist(ant.coords, t_coords)
-
-                    # finds closest and scores
-                    if t_dist < ah_dist:
-                        wEval[worker_count - 1] -= 5 * t_dist
-                    else:
-                        wEval[worker_count - 1] -= 5 * ah_dist
-
-                # if not carrying, the closer to food, the better
-                else:
-
-                    wEval.append(80.0)
-
-                    # distance to foods
-                    f1_dist = approxDist(ant.coords, food_coords[0])
-                    f2_dist = approxDist(ant.coords, food_coords[1])
-
-                    # finds closest and scores
-
-                    if f1_dist < f2_dist:
-                        wEval[worker_count - 1] -= 5 * f1_dist
-                    else:
-                        wEval[worker_count - 1] -= 5 * f2_dist
-
-                        # the father from enemy ants, the better
-                        # eval += -5 + self.get_closest_enemy_dist(ant.coords, enemy_inv.ants)
-
-            # scores soldiers to incentivize the disruption of the enemy economy
-            else:
-
-                # tallies up soldiers
-                drone_count += 1
-
-                dEval.append(50.0)
-
-                nearest_enemy_worker_dist = self.get_closest_enemy_worker_dist(ant.coords, enemy_inv.ants)
-
-                # if there is an enemy worker
-                if not nearest_enemy_worker_dist == 100:
-                    dEval[drone_count - 1] -= 5 * nearest_enemy_worker_dist
-
-                # if there isn't an enemy worker, go to the food
-                else:
-                    dEval[drone_count - 1] -= 5 * self.get_closest_enemy_food_dist(ant.coords, enemy_food_coords)
-
-        # scores other important things
-
-        # state eval
-        sEval = 0
-
-        # assesses worker inventory
-        if worker_count == 2:
-            sEval += 50
-        elif worker_count < 2:
-            sEval -= 10
-        elif worker_count > 2:
-            eval_num = 0.00001
-            return eval_num
-
-        # assesses drone inventory
-        if drone_count == 2:
-            sEval += 50
-        elif drone_count < 2:
-            sEval -= 10
-        elif drone_count > 2:
-            eval_num = 0.00001
-            return eval_num
-
-        # assesses food
-        if not sEval == 0:
-            sEval += 20 * my_inv.foodCount
-
-        # a temporary variable
-        temp = 0
-
-        # scores workers
-        for val in wEval:
-            temp += val
-        if worker_count == 0:
-            wEvalAv = 0
-        else:
-            wEvalAv = temp / worker_count
-
-        temp = 0
-
-        # scores drones
-        for val in dEval:
-            temp += val
-
-        if not drone_count == 0:
-            dEvalAv = temp / drone_count
-        else:
-            dEvalAv = 0
-
-        # total possible score
-        total_possible = 100.0 + 50.0 + 50.0 + 300.0
-
-        # scores total evaluation and returns
-        eval = (qEval + wEvalAv + dEvalAv + sEval) / total_possible
-        if eval <= 0:
-            eval = 0.00002
-
-        return eval
 
 
     ##
@@ -502,16 +302,35 @@ class AIPlayer(Player):
     ##
     # registerWin
     #
-    # This agent doens't learn
+    # This agent doesn't learn
     #
     def registerWin(self, hasWon):
         self.numGames += 1
+
+        reward = 0
+        if hasWon:
+            reward = 1
+        else:
+            reward = -1
+
+        # TD Learning Equation
+        if len(self.eligibility_queue) > 1:
+            self.e_lambda = 1
+            for i in range(len(self.eligibility_queue)):
+                if i == 0:
+                    self.state_value_list[self.eligibility_queue[i]][1] = -0.001 + self.alpha * self.e_lambda * (-.001 + self.gamma * reward - self.state_value_list[self.eligibility_queue[i]][1])
+                else:
+                    self.state_value_list[self.eligibility_queue[i]][1] = -0.001 + self.alpha * self.e_lambda * (
+                    -.001 + self.gamma * self.state_value_list[self.eligibility_queue[i - 1]][1] -
+                    self.state_value_list[self.eligibility_queue[i]][1])
+                    self.e_lambda *= 0.9
 
         self.write_state_list_to_file(self.filepath)
 
         if self.alpha > 0.001:
             self.alpha = math.pow(1.1,-0.25*self.numGames)
 
+        self.eligibility_queue = []
 
     ##
     # merge_sort
@@ -582,9 +401,6 @@ class AIPlayer(Player):
         # Get a reference to the player's inventory
         my_inv = state.inventories[me]
 
-        # Gets both the player's queens
-        my_queen = getAntList(state, me, (QUEEN,))
-
         player_food += my_inv.foodCount
 
         food_coords = []
@@ -608,7 +424,7 @@ class AIPlayer(Player):
 
             # scores queen
             if ant.type == QUEEN:
-                continue
+                queen_health = ant.health
 
             # scores worker to incentivize food gathering
             elif ant.type == WORKER:
@@ -715,9 +531,11 @@ class AIPlayer(Player):
     ##
     def read_states_from_file(self, filename):
         with open(filename, "r") as f:
-            states = f.splitlines()
+            states = f.read().splitlines()
             for s in states:
                 nums = s.split(",")
+                for num in nums:
+                    num = float(num)
                 length = len(s)
                 state = s[:length - 1]
                 eval = s[length - 1]
@@ -726,5 +544,26 @@ class AIPlayer(Player):
 
 
 
+    ##
+    # find_state_eval
+    #
+    # Parameters:
+    #   simplified_state - Consolidated state created from other method
+    ##
+    def find_state_eval(self, simplified_state):
+        for state in self.state_value_list:
+            if state[0] == simplified_state:
+                return state[1]
+        return -25655
 
-
+    ##
+    # append_state
+    #
+    # Parameters:
+    #   simplified_state - Consolidated state created from other method
+    ##
+    def append_state(self, simplified_state):
+        if (self.find_state_eval(simplified_state) == -25655):
+            self.state_value_list.append([simplified_state, 0.5])
+        else:
+            return -25655
