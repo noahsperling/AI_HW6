@@ -32,6 +32,9 @@ class AIPlayer(Player):
     # whether or not the playerID has been set up yet
     me_set_up = False
 
+    # a list for consolidated states and their values
+    state_value_list = []
+
     # __init__
     # Description: Creates a new Player
     #
@@ -533,3 +536,57 @@ class AIPlayer(Player):
         simplified_state = state
 
         return simplified_state
+
+    ##
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    ##
+    def append_state_to_list(self, state, utility):
+        self.state_value_list.append([state, utility])
+        return
+
+
+    ##
+    # write_state_list_to_file
+    #
+    #
+    #
+    ##
+    def write_state_list_to_file(self, filename):
+        with open(filename, "w") as f:
+            for state in self.state_value_list:
+                for num in state[0]:
+                    f.write("%lf," % num)
+                f.write("%lf\n" % state[1])
+
+
+    ##
+    # read_states_from_file
+    #
+    # Parameters
+    #   filename - file to open
+    #
+    # Return
+    #   returns nothing
+    #
+    ##
+    def read_states_from_file(self, filename):
+        with open(filename, "r") as f:
+            states = f.splitlines()
+            for s in states:
+                nums = s.split(",")
+                length = len(s)
+                state = s[:length - 1]
+                eval = s[length - 1]
+                self.state_value_list.append([state, eval])
+
+
+
+
+
+
