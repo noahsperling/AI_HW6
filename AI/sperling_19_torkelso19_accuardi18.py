@@ -2,6 +2,7 @@
 import random
 import sys
 import math
+import os
 
 sys.path.append("..")  # so other modules can be found in parent dir
 from Player import *
@@ -50,7 +51,7 @@ class AIPlayer(Player):
 
     #Eligibility Trace Stuff
     e_lambda = 1.0
-    e_size = 50
+    e_size = 100
     eligibility_queue = []
 
     #Game Counter
@@ -323,7 +324,7 @@ class AIPlayer(Player):
                     self.state_value_list[self.eligibility_queue[i]][1] = -0.001 + self.alpha * self.e_lambda * (
                     -.001 + self.gamma * self.state_value_list[self.eligibility_queue[i - 1]][1] -
                     self.state_value_list[self.eligibility_queue[i]][1])
-                    self.e_lambda *= 0.9
+                    self.e_lambda *= 0.95
 
         self.write_state_list_to_file(self.filepath)
 
@@ -479,14 +480,6 @@ class AIPlayer(Player):
 
 
 
-
-
-
-
-
-
-
-
     ##
     # append_state_to_list
     #
@@ -534,13 +527,12 @@ class AIPlayer(Player):
             states = f.read().splitlines()
             for s in states:
                 nums = s.split(",")
-                for num in nums:
-                    num = float(num)
-                length = len(s)
-                state = s[:length - 1]
-                eval = s[length - 1]
-                self.state_value_list.append([state, eval])
-
+                for i in range(len(nums)):
+                    nums[i] = float(nums[i])
+                length = len(nums)
+                state = nums[:length - 1]
+                eval = nums[length - 1]
+                self.append_state_to_list(state,eval)
 
 
 
