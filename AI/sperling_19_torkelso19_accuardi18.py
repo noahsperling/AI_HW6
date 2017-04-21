@@ -512,7 +512,7 @@ class AIPlayer(Player):
     #   returns nothing
     ##
     def write_state_list_to_file(self, filename):
-        with open(filename, "w") as f:
+        with open(filename, 'w') as f:
             for state in self.state_value_list:
                 for num in state[0]:
                     f.write("%lf," % num)
@@ -530,7 +530,7 @@ class AIPlayer(Player):
     #
     ##
     def read_states_from_file(self, filename):
-        with open(filename, "r") as f:
+        with open(filename, 'r') as f:
             states = f.read().splitlines()
             for s in states:
                 nums = s.split(",")
