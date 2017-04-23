@@ -73,9 +73,10 @@ class AIPlayer(Player):
         #Try to open utility file and if doesn't exist create it
         try:
             self.read_states_from_file(self.filepath)
+            print "Loaded State Value List!"
         except IOError:
             self.write_state_list_to_file(self.filepath)
-
+            print "Created State Value List!"
     ##
     # getPlacement
     #
@@ -214,7 +215,7 @@ class AIPlayer(Player):
 
         # if max depth surpassed, return state evaluation
         if curr_depth == self.max_depth + 1:
-            evaluation = self.find_state_eval(game_state)
+            evaluation = self.find_state_eval(self.consolidate_state(game_state))
             if evaluation == -25655:
                 evaluation = 0
             return evaluation
@@ -232,10 +233,10 @@ class AIPlayer(Player):
         # generate states based on moves, evaluate them and put them into a list in node_list
         for move in move_list:
             state = getNextStateAdversarial(game_state, move)
-            state_eval = self.find_state_eval(state)
+            state_eval = self.find_state_eval(self.consolidate_state(state))
             if state_eval == -25655:
                 state_eval = 0
-            if not state_eval == 0.00001:
+            if not state_eval == -50:
                 node_list.append([state, move, state_eval])
 
         # sorts nodes in ascending order
@@ -415,7 +416,10 @@ class AIPlayer(Player):
 
         # coordinates of this AI's tunnel
         tunnel = my_inv.getTunnels()
-        t_coords = tunnel[0].coords
+        if tunnel != None and len(tunnel) == 1:
+            t_coords = tunnel[0].coords
+        else:
+            t_coords = None
 
         # coordinates of this AI's anthill
         ah_coords = my_inv.getAnthill().coords
@@ -437,10 +441,16 @@ class AIPlayer(Player):
                 if ant.carrying:
 
                     # distance to anthill
-                    ah_dist = approxDist(ant.coords, ah_coords)
+                    if ah_coords != None:
+                        ah_dist = approxDist(ant.coords, ah_coords)
+                    else:
+                        ah_dist = 100
 
                     # distance to tunnel
-                    t_dist = approxDist(ant.coords, t_coords)
+                    if t_coords != None:
+                        t_dist = approxDist(ant.coords, t_coords)
+                    else:
+                        t_dist = 100
 
                     # finds closest and scores
                     # if ant.coords == ah_coords or ant.coords == t_coords:
@@ -475,6 +485,8 @@ class AIPlayer(Player):
             else:
                 # tallies up soldiers
                 fighter_count += 1
+        if worker_count > 4:
+            return [-1, worker_count, w_distance_to_move, fighter_count, player_food]
 
         return [queen_health, worker_count, w_distance_to_move, fighter_count, player_food]
 
@@ -543,6 +555,8 @@ class AIPlayer(Player):
     #   simplified_state - Consolidated state created from other method
     ##
     def find_state_eval(self, simplified_state):
+        if simplified_state[0] == -1:
+            return -50
         for state in self.state_value_list:
             if state[0] == simplified_state:
                 return state[1]
@@ -556,6 +570,6 @@ class AIPlayer(Player):
     ##
     def append_state(self, simplified_state):
         if (self.find_state_eval(simplified_state) == -25655):
-            self.state_value_list.append([simplified_state, 0.5])
+            self.state_value_list.append([simplified_state, 0.0])
         else:
             return -25655
