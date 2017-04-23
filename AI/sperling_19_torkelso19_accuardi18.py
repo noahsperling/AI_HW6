@@ -224,8 +224,8 @@ class AIPlayer(Player):
         move_list = listAllLegalMoves(game_state)
 
         # remove end turn move if the list isn't empty
-        #if not len(move_list) == 1:
-        #    move_list.pop()
+        if not len(move_list) == 1:
+            move_list.pop()
 
         # list of nodes, which contain the state, move, and eval
         node_list = []
